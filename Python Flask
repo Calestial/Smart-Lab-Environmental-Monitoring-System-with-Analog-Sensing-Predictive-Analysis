@@ -1,0 +1,60 @@
+from flask import Flask, request, jsonify
+import datetime
+
+app = Flask(__name__)
+
+# --- MODUL AI
+def simple_ai_predict(temp):
+    try:
+        t = float(temp)
+    except Exception:
+        return "ERROR_DATA"
+
+    # Logika Klasifikasi Status
+    if t >= 35.0:
+        return "CRITICAL_OVERHEAT"
+    elif t >= 30.0:
+        return "WARNING_HIGH_TEMP"
+    elif t < 20.0:
+        return "WARNING_LOW_TEMP"
+    else:
+        return "NORMAL"
+
+# Penyimpanan Data In-Memory
+data_store = []
+
+@app.route('/api/data', methods=['POST'])
+def receive_data():
+    content = request.json
+    # Mengambil parameter suhu, default 0 jika gagal
+    temp = content.get('temperature', 0)
+    
+    # Eksekusi AI
+    ai_result = simple_ai_predict(temp)
+    
+    record = {
+        'timestamp': datetime.datetime.now(),
+        'temperature': temp,
+        'prediction': ai_result
+    }
+    
+    # Manajemen memori (menyimpan 50 data terakhir)
+    data_store.append(record)
+    if len(data_store) > 50:
+        data_store.pop(0)
+    
+    return jsonify({
+        "status": "success", 
+        "ai_prediction": ai_result,
+        "sensor_type": "LM35 Analog"
+    }), 200
+
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify(data_store)
+
+# Konfigurasi WSGI
+application = app
+
+if __name__ == '__main__':
+    app.run(debug=True)
